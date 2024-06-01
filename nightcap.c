@@ -169,6 +169,8 @@ int main(int argc, char **argv) {
         DispatchMessage(&msg);
     }
 
+    TerminateProcess(hProc, 0);
+
     return 0;
 }
 
