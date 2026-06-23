@@ -7,9 +7,17 @@ Screensavers that behave differently in preview mode probably won't work very we
 
 Tested with various MS/Plus screensavers, including the all-important 3D Maze.
 
-# Usage
+## Requirements
 
-0. Make sure `wine` is installed and you can run `winegcc`.
+Make sure `wine` is installed and you can run `winegcc`.
+
+On Debian/Ubuntu-based systems you will need the Wine and X11 development libraries to compile nightcap, you can install them by running:
+
+```bash
+sudo apt install libwine-dev libx11-dev build-essential
+```
+
+# Usage
 
 1. Compile `nightcap.exe`:
 
