@@ -36,6 +36,7 @@ void cleanup(int signal) {
 BOOL found_child = FALSE;
 BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam) {
     found_child = TRUE;
+    return TRUE;
 }
 
 Display *dpy = NULL;
@@ -56,7 +57,7 @@ void die(const char *format, ...) {
     GC gc = XCreateGC(dpy, parent_xwindow, GCForeground, &gc_values);
     XTextItem xti = {
         .chars = msg,
-        .nchars = strlen(msg),
+        .nchars = (int)strlen(msg),
         };
     XDrawText(dpy, parent_xwindow, gc, 100, 100, &xti, 1);
     XFlush(dpy);
@@ -146,6 +147,27 @@ int main(int argc, char **argv) {
         die("CreateProcess failed (%d). Probably the .scr was not found?", GetLastError());
     }
 
+    // --- Create a Job Object to prevent ghost/zombie processes ---
+    HANDLE hJob = CreateJobObject(NULL, NULL);
+    if (hJob == NULL) {
+        die("CreateJobObject failed (%d)", GetLastError());
+    }
+
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+    if (!SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
+        die("SetInformationJobObject failed (%d)", GetLastError());
+    }
+
+    if (!AssignProcessToJobObject(hJob, pi.hProcess)) {
+        die("AssignProcessToJobObject failed (%d)", GetLastError());
+    }
+
+    // Clean up the thread handle as it's not needed
+    CloseHandle(pi.hThread);
+    // -------------------------------------------------------------
+
     while (!found_child) {
         EnumChildWindows(hwnd, EnumChildProc, 0);
         Sleep(5);
@@ -158,7 +180,7 @@ int main(int argc, char **argv) {
 
     int our_xwindow = (uintptr_t)GetPropW(hwnd, whole_window_prop);
 
-    int result = XReparentWindow(dpy, our_xwindow, parent_xwindow, 0, 0);
+    XReparentWindow(dpy, our_xwindow, parent_xwindow, 0, 0);
     XFlush(dpy);
     ShowWindow(hwnd, SW_SHOW);
 
@@ -170,6 +192,7 @@ int main(int argc, char **argv) {
     }
 
     TerminateProcess(hProc, 0);
+    CloseHandle(hJob); // Will also safely close and kill the child process if still alive
 
     return 0;
 }
